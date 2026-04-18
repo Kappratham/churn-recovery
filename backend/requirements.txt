@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+stripe
+supabase
+python-dotenv
+resend
+groq
+pydantic
+pydantic-settings
+httpx

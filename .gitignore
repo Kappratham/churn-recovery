@@ -1,0 +1,16 @@
+node_modules/
+venv/
+.env
+.env.local
+__pycache__/
+*.pyc
+.DS_Store
+dist/
+build/
+.next/
+.vscode/
+.idea/
+*.log
+manifest.json
+infsh.zip
+infsh_cli/
