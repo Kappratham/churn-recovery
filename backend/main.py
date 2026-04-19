@@ -68,6 +68,7 @@ def get_current_user(
 
 @app.get("/health")
 def health_check():
+    logger.info("Health check called")
     return {"status": "healthy"}
 
 @app.post("/webhook/lemonsqueezy")
