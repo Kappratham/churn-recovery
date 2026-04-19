@@ -2,17 +2,44 @@ import hmac
 import hashlib
 import json
 from fastapi import FastAPI, Request, Header, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from .config import get_settings, Settings
 from . import crud, llm
 from supabase import create_client, Client
 
 app = FastAPI(title="AI Churn Recovery API")
 
+# CORS for frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Initialize clients
 def get_supabase(settings: Settings = Depends(get_settings)) -> Client:
     if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
         raise HTTPException(status_code=500, detail="Supabase configuration missing")
     return create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+
+# Get authenticated user from JWT
+def get_current_user(
+    authorization: str = Header(None),
+    supabase: Client = Depends(get_supabase)
+):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
+
+    token = authorization.replace("Bearer ", "")
+    try:
+        user = supabase.auth.get_user(token)
+        if not user.user:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return user.user
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=str(e))
 
 @app.get("/health")
 def health_check():
@@ -86,3 +113,48 @@ async def lemonsqueezy_webhook(
             .execute()
 
     return {"status": "success"}
+
+# --- Frontend API Endpoints ---
+
+@app.get("/api/events")
+def get_dunning_events(
+    supabase: Client = Depends(get_supabase),
+    user = Depends(get_current_user)
+):
+    """Fetch all dunning events for the authenticated user"""
+    response = supabase.table("dunning_events") \
+        .select("*") \
+        .eq("user_id", user.id) \
+        .order("created_at", ascending=False) \
+        .execute()
+    return response.data
+
+@app.get("/api/stats")
+def get_stats(
+    supabase: Client = Depends(get_supabase),
+    user = Depends(get_current_user)
+):
+    """Get aggregated stats for the dashboard"""
+    response = supabase.table("dunning_events") \
+        .select("*") \
+        .eq("user_id", user.id) \
+        .execute()
+
+    events = response.data or []
+    active = [e for e in events if e.get("status") == "active"]
+    recovered = [e for e in events if e.get("status") == "recovered"]
+    failed = [e for e in events if e.get("status") == "failed"]
+
+    total_recovered = sum(e.get("amount_cents", 0) for e in recovered)
+    total_active_value = sum(e.get("amount_cents", 0) for e in active)
+    total_failed = sum(e.get("amount_cents", 0) for e in failed)
+
+    return {
+        "recovered_count": len(recovered),
+        "active_count": len(active),
+        "failed_count": len(failed),
+        "total_recovered_cents": total_recovered,
+        "total_active_cents": total_active_value,
+        "total_failed_cents": total_failed,
+        "recovery_rate": len(events) > 0 and round((len(recovered) / len(events)) * 100, 1) or 0
+    }
