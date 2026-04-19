@@ -34,6 +34,10 @@ except Exception as e:
 app = FastAPI(title="AI Churn Recovery API")
 app.state.settings = get_settings()
 
+@app.get("/")
+def root():
+    return {"message": "AI Churn Recovery API", "docs": "/docs"}
+
 # CORS for frontend
 app.add_middleware(
     CORSMiddleware,
