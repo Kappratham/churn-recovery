@@ -1,25 +1,54 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, CreditCard, Activity, BarChart3, Settings as SettingsIcon, LogOut } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Activity,
+  BarChart3,
+  Settings as SettingsIcon,
+  LogOut,
+  Zap,
+  Bell,
+  Shield,
+  Globe,
+  Cpu,
+  Clock,
+  Search,
+  Layers,
+  ChevronRight,
+  Radio,
+  Terminal
+} from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
-import { createClient } from '@supabase/supabase-js';
-import { Auth } from '@supabase/auth-ui-react';
-import { ThemeSupa } from '@supabase/auth-ui-shared';
+import { supabase } from './lib/supabase';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_KEY;
-
-const supabase = (supabaseUrl && supabaseKey && supabaseUrl !== 'placeholder') 
-  ? createClient(supabaseUrl, supabaseKey)
-  : null;
+// Navigation configuration
+const NAV_ITEMS = [
+  { id: 'Dashboard', label: 'Overview', icon: LayoutDashboard },
+  { id: 'Sequences', label: 'Recovery Queue', icon: Layers },
+  { id: 'Rules', label: 'AI Strategies', icon: Zap },
+  { id: 'Performance', label: 'Analytics', icon: BarChart3 },
+];
 
 function App() {
   const [session, setSession] = useState<any>(null);
+  const [init, setInit] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [activeTab, setActiveTab] = useState('Dashboard');
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase) {
+      setInit(true);
+      return;
+    }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      setInit(true);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -29,96 +58,368 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // For testing purposes, if no supabase client, show dashboard directly or a mock session
-  const showDashboard = !supabase || session;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabase) return;
+    setLoading(true);
+    setError(null);
+    setMessage(null);
 
-  if (!showDashboard) {
-    return (
-      <div className="flex min-h-screen bg-[#0a0a0f] items-center justify-center p-6">
-        <div className="w-full max-w-md bg-[#12121a] p-8 rounded-xl border border-[#2a2a3a]">
-          <div className="flex items-center gap-3 mb-8 justify-center">
-            <div className="w-10 h-10 rounded-lg bg-[#ff6b35] flex items-center justify-center font-bold text-white text-xl">C</div>
-            <span className="font-bold text-2xl tracking-tight">ChurnAI</span>
+    if (isSignUp) {
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) setError(error.message);
+      else setMessage("Check your email for verification.");
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) setError(error.message);
+    }
+    setLoading(false);
+  };
+
+  // Loading screen
+  if (!init) return (
+    <div className="min-h-screen bg-[#050507] flex items-center justify-center relative overflow-hidden">
+      <div className="absolute inset-0 tech-grid opacity-50"></div>
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-amber-500/[0.03] blur-[150px] rounded-full pointer-events-none"></div>
+
+      <div className="flex flex-col items-center gap-8 relative z-10 animate-fade-in">
+        <div className="w-16 h-16 rounded-lg bg-[#0e0e14] border border-[rgba(255,255,255,0.08)] flex items-center justify-center">
+          <Terminal size={28} className="text-amber-500" strokeWidth={1.5} />
+        </div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="status-dot status-online status-pulse"></div>
+            <span className="text-[11px] text-[#52525b] font-mono tracking-widest uppercase">System Boot</span>
           </div>
-          <Auth 
-            supabaseClient={supabase} 
-            appearance={{ 
-              theme: ThemeSupa,
-              style: {
-                button: { background: '#ff6b35', color: 'white', border: 'none' },
-                anchor: { color: '#6b6b8a' },
-                divider: { background: '#2a2a3a' },
-                input: { background: '#1a1a26', border: '1px solid #2a2a3a', color: 'white' },
-                label: { color: '#6b6b8a' }
-              }
-            }} 
-            theme="dark"
-            providers={[]}
-          />
+        </div>
+      </div>
+    </div>
+  );
+
+  // Login screen
+  if (supabase && !session) {
+    return (
+      <div className="flex min-h-screen bg-[#050507] items-center justify-center p-6 relative overflow-hidden">
+        <div className="absolute inset-0 tech-grid opacity-30"></div>
+        <div className="absolute top-[15%] left-[20%] w-[400px] h-[400px] bg-amber-500/[0.04] blur-[150px] rounded-full pointer-events-none"></div>
+        <div className="absolute bottom-[15%] right-[20%] w-[300px] h-[300px] bg-emerald-500/[0.03] blur-[120px] rounded-full pointer-events-none"></div>
+
+        <div className="w-full max-w-[380px] relative z-10">
+          {/* Header */}
+          <div className="flex flex-col items-center mb-10">
+            <div className="w-14 h-14 rounded-lg bg-[#0e0e14] border border-[rgba(255,255,255,0.08)] flex items-center justify-center mb-5">
+              <Terminal size={26} className="text-amber-500" strokeWidth={1.5} />
+            </div>
+            <h1 className="text-xl font-bold tracking-tight">Churn<span className="text-[#52525b]">Recovery</span></h1>
+            <p className="text-[#52525b] text-xs mt-1.5 font-mono">Dunning Automation System v2.4</p>
+          </div>
+
+          {/* Form card */}
+          <div className="bg-[#0e0e14] border border-[rgba(255,255,255,0.06)] rounded-lg p-8">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <label className="label">Email Address</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="input"
+                  placeholder="operator@company.io"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="label">Access Token</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="input"
+                  placeholder="••••••••••••"
+                  required
+                />
+              </div>
+
+              {error && (
+                <div className="p-3 rounded-md bg-red-500/[0.08] border border-red-500/[0.15]">
+                  <p className="text-red-400 text-xs font-mono">{error}</p>
+                </div>
+              )}
+              {message && (
+                <div className="p-3 rounded-md bg-emerald-500/[0.08] border border-emerald-500/[0.15]">
+                  <p className="text-emerald-400 text-xs font-mono">{message}</p>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn btn-primary w-full"
+              >
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <Radio size={14} className="animate-pulse" />
+                    Authenticating...
+                  </span>
+                ) : (
+                  'Access Console'
+                )}
+              </button>
+            </form>
+
+            <div className="mt-6 pt-6 border-t border-[rgba(255,255,255,0.04)] text-center">
+              <button
+                onClick={() => { setIsSignUp(!isSignUp); setError(null); setMessage(null); }}
+                className="text-[#52525b] hover:text-[#a1a1aa] text-xs font-mono transition-colors"
+              >
+                {isSignUp ? '← Return to login' : '+ Create new organization'}
+              </button>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="mt-8 text-center">
+            <p className="text-[#27272a] text-[10px] font-mono">Protected by enterprise-grade security</p>
+          </div>
         </div>
       </div>
     );
   }
 
+  // Main app layout
   return (
-    <div className="flex min-h-screen bg-[#0a0a0f]">
+    <div className="flex h-screen bg-[#050507] text-white overflow-hidden">
       {/* Sidebar */}
-      <div className="w-64 border-r border-[#2a2a3a] p-6 flex flex-col gap-8">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-[#ff6b35] flex items-center justify-center font-bold text-white">C</div>
-          <span className="font-bold text-lg tracking-tight">ChurnAI</span>
+      <aside className="w-64 flex flex-col border-r border-[rgba(255,255,255,0.04)] bg-[#09090d] shrink-0">
+        {/* Logo */}
+        <div className="p-5 border-b border-[rgba(255,255,255,0.04)]">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-md bg-[#0e0e14] border border-[rgba(255,255,255,0.06)] flex items-center justify-center">
+              <Terminal size={18} className="text-amber-500" strokeWidth={1.5} />
+            </div>
+            <div>
+              <span className="text-sm font-semibold">Churn<span className="text-[#52525b]">Recovery</span></span>
+              <span className="text-[9px] text-[#27272a] font-mono block ml-1">v2.4.0</span>
+            </div>
+          </div>
         </div>
-        
-        <nav className="flex flex-col gap-2">
-          <NavItem icon={<LayoutDashboard size={18} />} label="Dashboard" active />
-          <NavItem icon={<Activity size={18} />} label="Active Sequences" />
-          <NavItem icon={<CreditCard size={18} />} label="Payment Gateway" />
-          <NavItem icon={<BarChart3 size={18} />} label="Analytics" />
-          <NavItem icon={<SettingsIcon size={18} />} label="Settings" />
+
+        {/* Navigation */}
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto custom-scrollbar">
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-md text-left transition-all duration-200 ${
+                  isActive
+                    ? 'bg-amber-500/[0.08] text-amber-500 border border-amber-500/[0.15]'
+                    : 'text-[#a1a1aa] hover:text-white hover:bg-[rgba(255,255,255,0.02)] border border-transparent'
+                }`}
+              >
+                <Icon size={18} strokeWidth={1.5} />
+                <span className="text-[13px] font-medium">{item.label}</span>
+                {isActive && <ChevronRight size={14} className="ml-auto opacity-50" />}
+              </button>
+            );
+          })}
+
+          <div className="h-px bg-[rgba(255,255,255,0.04)] my-4"></div>
+
+          <button
+            onClick={() => setActiveTab('Settings')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-md text-left transition-all duration-200 ${
+              activeTab === 'Settings'
+                ? 'bg-amber-500/[0.08] text-amber-500 border border-amber-500/[0.15]'
+                : 'text-[#a1a1aa] hover:text-white hover:bg-[rgba(255,255,255,0.02)] border border-transparent'
+            }`}
+          >
+            <SettingsIcon size={18} strokeWidth={1.5} />
+            <span className="text-[13px] font-medium">Configuration</span>
+            {activeTab === 'Settings' && <ChevronRight size={14} className="ml-auto opacity-50" />}
+          </button>
         </nav>
 
-        <div className="mt-auto">
-          <button 
+        {/* User section */}
+        <div className="p-4 border-t border-[rgba(255,255,255,0.04)] bg-[#070709]">
+          <div className="flex items-center gap-3 p-3 rounded-md bg-[#0e0e14] border border-[rgba(255,255,255,0.04)]">
+            <div className="w-8 h-8 rounded bg-[#14141c] flex items-center justify-center text-[#52525b] text-xs font-mono font-semibold">
+              {session?.user.email?.[0].toUpperCase() || 'A'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium truncate text-[#a1a1aa]">{session?.user.email?.split('@')[0] || 'Admin'}</p>
+              <p className="text-[9px] text-[#52525b] flex items-center gap-1.5">
+                <span className="status-dot status-online"></span>
+                Online
+              </p>
+            </div>
+          </div>
+          <button
             onClick={() => supabase?.auth.signOut()}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors text-[#6b6b8a] hover:bg-[#12121a] hover:text-white"
+            className="w-full mt-2 flex items-center justify-center gap-2 py-2.5 rounded-md text-[#52525b] hover:text-[#a1a1aa] hover:bg-[rgba(255,255,255,0.02)] transition-all text-[11px] font-mono"
           >
-            <LogOut size={18} />
-            <span className="text-sm font-medium">Sign Out</span>
+            <LogOut size={12} /> Sign Out
           </button>
         </div>
-      </div>
+      </aside>
 
-      {/* Main Content */}
-      <div className="flex-1 p-10 overflow-auto">
-        <header className="flex justify-between items-center mb-10">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">AI Churn Recovery Dashboard</h1>
-            <p className="text-[#6b6b8a] text-sm mt-1">
-              {session ? `Logged in as ${session.user.email}` : 'Connected to Supabase'}
-            </p>
+      {/* Main content */}
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <header className="h-14 px-6 flex items-center justify-between border-b border-[rgba(255,255,255,0.04)] bg-[#050507]/80 backdrop-blur-xl">
+          <div className="flex items-center gap-4">
+            <h2 className="text-xs font-semibold text-[#52525b] uppercase tracking-widest">{activeTab}</h2>
+            <div className="h-4 w-px bg-[rgba(255,255,255,0.04)]"></div>
+            <div className="flex items-center gap-2">
+              <span className={`status-dot ${!supabase ? 'status-offline' : 'status-online'} status-pulse`}></span>
+              <span className="text-[10px] text-[#52525b] font-mono uppercase">{!supabase ? 'Demo Mode' : 'Live'}</span>
+            </div>
           </div>
+
           <div className="flex items-center gap-3">
-            <span className="bg-[#00d4aa22] text-[#00d4aa] text-[10px] font-bold px-2 py-1 rounded-full border border-[#00d4aa33] tracking-widest uppercase">
-              Lemon Squeezy Active
-            </span>
-            <button className="bg-[#12121a] hover:bg-[#1a1a26] text-white border border-[#2a2a3a] px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-2">
-              <SettingsIcon size={16} />
-              Setup Webhook
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#27272a]" size={14} />
+              <input
+                className="bg-[#0e0e14] border border-[rgba(255,255,255,0.04)] rounded-md py-1.5 pl-9 pr-4 text-xs focus:outline-none focus:border-amber-500/[0.3] w-48 placeholder:text-[#27272a]"
+                placeholder="Search records..."
+              />
+            </div>
+            <div className="h-6 w-px bg-[rgba(255,255,255,0.04)]"></div>
+            <button className="p-2 rounded-md text-[#52525b] hover:text-white hover:bg-[rgba(255,255,255,0.02)] transition-colors">
+              <Bell size={16} />
+            </button>
+            <button className="btn btn-primary text-xs py-1.5 px-3">
+              Sync Now
             </button>
           </div>
         </header>
 
-        <Dashboard />
+        {/* Content area */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+          <div className="absolute inset-0 tech-grid opacity-[0.2] pointer-events-none"></div>
+
+          <div className="p-6 relative z-10">
+            {activeTab === 'Dashboard' && <Dashboard />}
+            {activeTab === 'Sequences' && <SequencesView />}
+            {activeTab === 'Rules' && <RulesView />}
+            {activeTab === 'Performance' && <PerformanceView />}
+            {activeTab === 'Settings' && <SettingsView />}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+// Sequences view
+function SequencesView() {
+  return (
+    <div className="space-y-6 animate-slide-up">
+      <div className="flex justify-between items-start">
+        <div>
+          <h2 className="text-xl font-semibold">Recovery Queue</h2>
+          <p className="text-[#52525b] text-sm mt-1">Active failed payment sequences</p>
+        </div>
+        <button className="btn btn-secondary text-xs">
+          <Activity size={14} /> Refresh
+        </button>
+      </div>
+
+      <div className="card p-16 text-center">
+        <div className="w-16 h-16 rounded-lg bg-[#14141c] border border-[rgba(255,255,255,0.04)] flex items-center justify-center mx-auto mb-5">
+          <Layers size={24} className="text-[#27272a]" />
+        </div>
+        <h3 className="text-[#52525b] font-medium">No active sequences</h3>
+        <p className="text-[#27272a] text-sm mt-2 max-w-sm mx-auto">Waiting for failed payment webhooks from your payment provider.</p>
       </div>
     </div>
   );
 }
 
-function NavItem({ icon, label, active = false }: { icon: React.ReactNode, label: string, active?: boolean }) {
+// Rules/AI Strategies view
+function RulesView() {
+  const features = [
+    { icon: Clock, title: 'Smart Timing', desc: 'AI calculates optimal retry windows based on 14 behavioral data points.' },
+    { icon: Shield, title: 'Adaptive Tone', desc: 'Automatic voice modulation between 4 modes based on customer engagement.' },
+    { icon: Globe, title: 'Global Sync', desc: 'Timezone-aware delivery scheduling for maximum open rates.' },
+    { icon: Cpu, title: 'LLM Engine', desc: 'Advanced language model verification for all outbound communications.' },
+  ];
+
   return (
-    <div className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${active ? 'bg-[#1a1a26] text-white' : 'text-[#6b6b8a] hover:bg-[#12121a] hover:text-white'}`}>
-      {icon}
-      <span className="text-sm font-medium">{label}</span>
+    <div className="space-y-6 animate-slide-up">
+      <div>
+        <h2 className="text-xl font-semibold">AI Recovery Strategies</h2>
+        <p className="text-[#52525b] text-sm mt-1">Configure intelligent recovery logic</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {features.map((feature, i) => {
+          const Icon = feature.icon;
+          return (
+            <div
+              key={feature.title}
+              className={`card p-6 hover:border-[rgba(255,255,255,0.12)] transition-all animate-slide-up delay-${(i + 1) * 75}`}
+            >
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-md bg-[#14141c] border border-[rgba(255,255,255,0.04)] flex items-center justify-center shrink-0">
+                  <Icon size={18} className="text-amber-500" strokeWidth={1.5} />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold">{feature.title}</h3>
+                  <p className="text-[#52525b] text-xs leading-relaxed">{feature.desc}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Performance view
+function PerformanceView() {
+  return (
+    <div className="py-32 text-center animate-fade-in">
+      <BarChart3 size={48} className="mx-auto text-[#27272a] mb-4" />
+      <h2 className="text-lg font-medium text-[#52525b]">Analytics Pipeline</h2>
+      <p className="text-[#27272a] text-sm mt-2">Detailed metrics coming soon</p>
+    </div>
+  );
+}
+
+// Settings view
+function SettingsView() {
+  const configs = [
+    { label: 'WEBHOOK_ENDPOINT', val: 'https://api.churnrecovery.io/v1/webhook' },
+    { label: 'AI_MODEL', val: 'Llama-3.3-70b-Versatile' },
+    { label: 'EMAIL_PROVIDER', val: 'Resend / noreply@churnrecovery.io' },
+    { label: 'RETRY_STRATEGY', val: 'Exponential Backoff (3 attempts)' },
+  ];
+
+  return (
+    <div className="max-w-2xl space-y-6 animate-slide-up">
+      <div>
+        <h2 className="text-xl font-semibold">System Configuration</h2>
+        <p className="text-[#52525b] text-sm mt-1">API endpoints and service integration</p>
+      </div>
+
+      <div className="space-y-2">
+        {configs.map((config) => (
+          <div key={config.label} className="card p-4 flex items-center justify-between group">
+            <div>
+              <p className="text-[9px] text-[#27272a] font-mono uppercase tracking-wider">{config.label}</p>
+              <p className="text-sm font-mono text-[#a1a1aa] mt-1">{config.val}</p>
+            </div>
+            <button className="btn btn-secondary text-[10px] py-1.5 px-3 opacity-0 group-hover:opacity-100 transition-opacity">
+              Edit
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
