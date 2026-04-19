@@ -44,13 +44,6 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const getAuthHeaders = () => {
-    const token = supabase?.auth.getSession()?.then(({ data }) => data.session?.access_token);
-    return {
-      'Authorization': `Bearer ${token}`
-    };
-  };
-
   useEffect(() => {
     async function fetchData() {
       if (!supabase) {
