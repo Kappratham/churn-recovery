@@ -3,7 +3,6 @@ import hashlib
 import json
 import logging
 import sys
-from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Header, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from config import get_settings, Settings
@@ -19,18 +18,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    logger.info("Starting AI Churn Recovery API...")
-    settings = get_settings()
-    logger.info(f"Supabase configured: {bool(settings.SUPABASE_URL)}")
-    logger.info(f"Lemon Squeezy configured: {bool(settings.LEMON_SQUEEZY_API_KEY)}")
-    logger.info(f"Resend configured: {bool(settings.RESEND_API_KEY)}")
-    logger.info(f"Groq configured: {bool(settings.GROQ_API_KEY)}")
-    logger.info("API startup complete")
-    yield
+logger.info("Starting AI Churn Recovery API...")
+settings = get_settings()
+logger.info(f"Supabase configured: {bool(settings.SUPABASE_URL)}")
+logger.info(f"Lemon Squeezy configured: {bool(settings.LEMON_SQUEEZY_API_KEY)}")
+logger.info(f"Resend configured: {bool(settings.RESEND_API_KEY)}")
+logger.info(f"Groq configured: {bool(settings.GROQ_API_KEY)}")
+logger.info("API startup complete")
 
-app = FastAPI(title="AI Churn Recovery API", lifespan=lifespan)
+app = FastAPI(title="AI Churn Recovery API")
 
 # CORS for frontend
 app.add_middleware(
