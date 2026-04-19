@@ -1,6 +1,10 @@
 import time
 from datetime import datetime, timedelta
-from . import crud, llm, email_service, config, lemonsqueezy_service
+import crud
+import llm
+import email_service
+import config
+import lemonsqueezy_service
 from supabase import create_client
 
 def run_scheduler():

@@ -1,6 +1,6 @@
 import httpx
 import json
-from .config import get_settings
+from config import get_settings
 
 def analyze_failure_reason(failure_code: str):
     """

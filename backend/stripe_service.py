@@ -1,5 +1,5 @@
 import stripe
-from .config import get_settings
+from config import get_settings
 
 def get_customer_details(stripe_account_id: str, customer_id: str):
     """

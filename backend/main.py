@@ -3,8 +3,9 @@ import hashlib
 import json
 from fastapi import FastAPI, Request, Header, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from .config import get_settings, Settings
-from . import crud, llm
+from config import get_settings, Settings
+import crud
+import llm
 from supabase import create_client, Client
 
 app = FastAPI(title="AI Churn Recovery API")

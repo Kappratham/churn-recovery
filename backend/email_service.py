@@ -1,5 +1,5 @@
 import resend
-from .config import get_settings
+from config import get_settings
 
 def send_dunning_email(to_email: str, subject: str, body: str):
     settings = get_settings()

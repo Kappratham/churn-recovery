@@ -1,5 +1,5 @@
 import httpx
-from .config import get_settings
+from config import get_settings
 
 LEMON_SQUEEZY_API_URL = "https://api.lemonsqueezy.com/v1"
 
