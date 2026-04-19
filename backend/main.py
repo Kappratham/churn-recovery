@@ -22,6 +22,15 @@ logger = logging.getLogger(__name__)
 logger.info("Starting AI Churn Recovery API...")
 
 try:
+    # Test imports
+    import crud
+    import llm
+    import config
+    import email_service
+    import lemonsqueezy_service
+    import scheduler
+    logger.info("All modules imported OK")
+
     settings = get_settings()
     logger.info(f"Supabase URL set: {bool(settings.SUPABASE_URL)}")
     logger.info(f"Lemon Squeezy API set: {bool(settings.LEMON_SQUEEZY_API_KEY)}")
@@ -30,6 +39,8 @@ try:
     logger.info("Startup complete")
 except Exception as e:
     logger.error(f"Startup failed: {e}")
+    import traceback
+    traceback.print_exc()
 
 app = FastAPI(title="AI Churn Recovery API")
 app.state.settings = get_settings()

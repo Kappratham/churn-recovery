@@ -6,12 +6,6 @@
   },
   "deploy": {
     "numReplicas": 1,
-    "restartPolicyType": "ON_FAILURE",
-    "healthcheck": {
-      "path": "/health",
-      "interval": 30,
-      "timeout": 10,
-      "retries": 3
-    }
+    "restartPolicyType": "ON_FAILURE"
   }
 }
