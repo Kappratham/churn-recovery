@@ -13,4 +13,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ .
 
 # Start the application
-CMD uvicorn main:app --host 0.0.0.0 --port 8000 --log-level info --access-log
+CMD python -c "print('About to start uvicorn...'); import uvicorn; print('Uvicorn imported'); uvicorn.run('main:app', host='0.0.0.0', port=8000)"
