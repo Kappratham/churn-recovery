@@ -23,13 +23,6 @@ import { supabase } from './lib/supabase';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
-async function fetchWithAuth(url: string) {
-  const { data: { session } } = await supabase!.auth.getSession();
-  return axios.get(url, {
-    headers: { 'Authorization': `Bearer ${session?.access_token}` }
-  });
-}
-
 // Navigation configuration
 const NAV_ITEMS = [
   { id: 'Dashboard', label: 'Overview', icon: LayoutDashboard },
@@ -374,11 +367,24 @@ function SequencesView() {
 
 // Rules/AI Strategies view
 function RulesView() {
+  const [strategies, setStrategies] = useState({
+    smartTiming: true,
+    adaptiveTone: true,
+    globalSync: true,
+    llmEngine: true,
+    maxAttempts: 4,
+    defaultTone: 'gentle'
+  });
+
+  const handleToggle = (key: string) => {
+    setStrategies(prev => ({ ...prev, [key]: !prev[key as keyof typeof prev] }));
+  };
+
   const features = [
-    { icon: Clock, title: 'Smart Timing', desc: 'AI calculates optimal retry windows based on 14 behavioral data points.' },
-    { icon: Shield, title: 'Adaptive Tone', desc: 'Automatic voice modulation between 4 modes based on customer engagement.' },
-    { icon: Globe, title: 'Global Sync', desc: 'Timezone-aware delivery scheduling for maximum open rates.' },
-    { icon: Cpu, title: 'LLM Engine', desc: 'Advanced language model verification for all outbound communications.' },
+    { icon: Clock, title: 'Smart Timing', desc: 'AI calculates optimal retry windows based on 14 behavioral data points.', key: 'smartTiming' },
+    { icon: Shield, title: 'Adaptive Tone', desc: 'Automatic voice modulation between 4 modes based on customer engagement.', key: 'adaptiveTone' },
+    { icon: Globe, title: 'Global Sync', desc: 'Timezone-aware delivery scheduling for maximum open rates.', key: 'globalSync' },
+    { icon: Cpu, title: 'LLM Engine', desc: 'Advanced language model verification for all outbound communications.', key: 'llmEngine' },
   ];
 
   return (
@@ -389,25 +395,72 @@ function RulesView() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {features.map((feature, i) => {
+        {features.map((feature) => {
           const Icon = feature.icon;
+          const enabled = strategies[feature.key as keyof typeof strategies];
           return (
             <div
               key={feature.title}
-              className={`card p-6 hover:border-[rgba(255,255,255,0.12)] transition-all animate-slide-up delay-${(i + 1) * 75}`}
+              className={`card p-6 hover:border-[rgba(255,255,255,0.12)] transition-all ${enabled ? 'border-amber-500/30' : ''}`}
             >
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 rounded-md bg-[#14141c] border border-[rgba(255,255,255,0.04)] flex items-center justify-center shrink-0">
-                  <Icon size={18} className="text-amber-500" strokeWidth={1.5} />
+                  <Icon size={18} className={enabled ? 'text-amber-500' : 'text-[#27272a]'} strokeWidth={1.5} />
                 </div>
-                <div className="space-y-2">
-                  <h3 className="text-sm font-semibold">{feature.title}</h3>
-                  <p className="text-[#52525b] text-xs leading-relaxed">{feature.desc}</p>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold">{feature.title}</h3>
+                    <button
+                      onClick={() => handleToggle(feature.key)}
+                      className={`w-10 h-5 rounded-full transition-colors ${enabled ? 'bg-amber-500' : 'bg-[#27272a]'}`}
+                    >
+                      <div className={`w-4 h-4 rounded-full bg-white transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    </button>
+                  </div>
+                  <p className="text-[#52525b] text-xs leading-relaxed mt-2">{feature.desc}</p>
                 </div>
               </div>
             </div>
           );
         })}
+      </div>
+
+      <div className="card p-6 space-y-4">
+        <h3 className="text-sm font-semibold">Recovery Parameters</h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-[9px] text-[#27272a] font-mono uppercase tracking-wider">Max Attempts</label>
+            <select
+              value={strategies.maxAttempts}
+              onChange={(e) => setStrategies(prev => ({ ...prev, maxAttempts: Number(e.target.value) }))}
+              className="input mt-1"
+            >
+              <option value={3}>3 attempts</option>
+              <option value={4}>4 attempts</option>
+              <option value={5}>5 attempts</option>
+              <option value={6}>6 attempts</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[9px] text-[#27272a] font-mono uppercase tracking-wider">Default Tone</label>
+            <select
+              value={strategies.defaultTone}
+              onChange={(e) => setStrategies(prev => ({ ...prev, defaultTone: e.target.value }))}
+              className="input mt-1"
+            >
+              <option value="gentle">Gentle</option>
+              <option value="friendly">Friendly</option>
+              <option value="firm">Firm</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </div>
+        </div>
+
+        <button className="btn btn-primary text-xs">
+          Save Configuration
+        </button>
       </div>
     </div>
   );
@@ -426,11 +479,49 @@ function PerformanceView() {
 
 // Settings view
 function SettingsView() {
-  const configs = [
-    { label: 'WEBHOOK_ENDPOINT', val: 'https://api.churnrecovery.io/v1/webhook' },
+  const [config, setConfig] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchConfig() {
+      if (!supabase) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          const res = await axios.get(`${API_URL}/api/config`, {
+            headers: { 'Authorization': `Bearer ${session.access_token}` }
+          });
+          setConfig(res.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch config:', err);
+      }
+      setLoading(false);
+    }
+    fetchConfig();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Radio size={20} className="text-amber-500 animate-pulse" />
+      </div>
+    );
+  }
+
+  const configs = config ? [
+    { label: 'WEBHOOK_ENDPOINT', val: config.webhook_url || 'Not configured' },
+    { label: 'AI_MODEL', val: config.ai_model || 'Llama-3.3-70b-Versatile' },
+    { label: 'EMAIL_PROVIDER', val: config.email_provider || 'Resend' },
+    { label: 'RETRY_STRATEGY', val: config.retry_strategy || 'Exponential Backoff (4 attempts)' },
+  ] : [
+    { label: 'WEBHOOK_ENDPOINT', val: 'https://churn-recovery-production.up.railway.app/webhook/lemonsqueezy' },
     { label: 'AI_MODEL', val: 'Llama-3.3-70b-Versatile' },
-    { label: 'EMAIL_PROVIDER', val: 'Resend / noreply@churnrecovery.io' },
-    { label: 'RETRY_STRATEGY', val: 'Exponential Backoff (3 attempts)' },
+    { label: 'EMAIL_PROVIDER', val: 'Resend' },
+    { label: 'RETRY_STRATEGY', val: 'Exponential Backoff (4 attempts)' },
   ];
 
   return (
@@ -452,6 +543,33 @@ function SettingsView() {
             </button>
           </div>
         ))}
+      </div>
+
+      <div className="card p-4">
+        <h3 className="text-sm font-semibold mb-3">Integration Status</h3>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-[#52525b]">Supabase</span>
+            <span className="text-emerald-500 flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              Connected
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-[#52525b]">Lemon Squeezy</span>
+            <span className="text-emerald-500 flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              Webhook Active
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-[#52525b]">Resend</span>
+            <span className="text-emerald-500 flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              Email Ready
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -6,10 +6,10 @@ import time
 
 # --- CONFIGURATION ---
 # 1. Replace with your live Railway URL (no trailing slash)
-RAILWAY_URL = "https://your-app.up.railway.app" 
+RAILWAY_URL = "https://churn-recovery-production.up.railway.app"
 
 # 2. Replace with the secret you entered in Lemon Squeezy
-WEBHOOK_SECRET = "your_webhook_secret" 
+WEBHOOK_SECRET = "webhook123"
 # ---------------------
 
 def simulate_failed_payment():
@@ -53,14 +53,14 @@ def simulate_failed_payment():
     response = requests.post(url, data=body, headers=headers)
     
     if response.status_code == 200:
-        print("✅ SUCCESS: Webhook accepted by backend!")
+        print("SUCCESS: Webhook accepted by backend!")
         print(f"Server response: {response.json()}")
         print("\nNext steps:")
         print("1. Check your Supabase 'dunning_events' table.")
-        print("2. Check your React Dashboard—you should see a new 'Active Sequence'.")
+        print("2. Check your React Dashboard - you should see a new 'Active Sequence'.")
         print("3. Check your Resend dashboard logs to see the AI email.")
     else:
-        print(f"❌ FAILED: Server returned {response.status_code}")
+        print(f"FAILED: Server returned {response.status_code}")
         print(f"Error: {response.text}")
 
 if __name__ == "__main__":

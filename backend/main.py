@@ -167,3 +167,108 @@ def sync_data(
 ):
     """Trigger a sync - returns success to refresh frontend data"""
     return {"status": "synced", "message": "Data refreshed"}
+
+@app.get("/api/config")
+def get_config(
+    supabase: Client = Depends(get_supabase),
+    user = Depends(get_current_user)
+):
+    """Get user configuration"""
+    response = supabase.table("user_config").select("*").eq("user_id", user.id).execute()
+    if response.data:
+        return response.data[0]
+    # Return defaults if no config exists
+    return {
+        "webhook_url": f"https://churn-recovery-production.up.railway.app/webhook/lemonsqueezy",
+        "ai_model": "llama-3.3-70b-versatile",
+        "email_provider": "Resend",
+        "retry_strategy": "Exponential Backoff (4 attempts)",
+        "user_id": user.id
+    }
+
+@app.post("/api/config")
+def update_config(
+    config_data: dict,
+    supabase: Client = Depends(get_supabase),
+    user = Depends(get_current_user)
+):
+    """Update user configuration"""
+    config_data["user_id"] = user.id
+    # Upsert config
+    existing = supabase.table("user_config").select("id").eq("user_id", user.id).execute()
+    if existing.data:
+        supabase.table("user_config").update(config_data).eq("user_id", user.id).execute()
+    else:
+        supabase.table("user_config").insert(config_data).execute()
+    return {"status": "updated", "config": config_data}
+
+# --- Scheduler Trigger (for cron jobs) ---
+
+@app.post("/api/process-events")
+def process_due_events(
+    settings: Settings = Depends(get_settings),
+    supabase: Client = Depends(get_supabase)
+):
+    """Process due dunning events - called by scheduler or cron"""
+    import llm
+    import email_service
+    import lemonsqueezy_service
+    from datetime import datetime, timedelta
+
+    due_events = supabase.table("dunning_events").select("*").eq("status", "active").lte("next_email_due_at", datetime.now().isoformat()).execute()
+
+    processed = 0
+    for event in due_events.data:
+        emails_sent = event['emails_sent']
+        next_emails_sent = emails_sent + 1
+
+        if next_emails_sent > 4:
+            supabase.table("dunning_events").update({"status": "failed"}).eq("id", event['id']).execute()
+            continue
+
+        # AI Logic
+        failure_reason = event.get('failure_summary')
+        current_tone = event.get('ai_tone', 'gentle')
+
+        try:
+            next_step = llm.calculate_next_step(failure_reason, emails_sent, current_tone)
+            tone = next_step.get('next_tone', 'firm')
+            days_to_add = next_step.get('days_to_wait', 3)
+        except:
+            tone = "firm"
+            days_to_add = 3
+
+        next_due = datetime.now() + timedelta(days=days_to_add)
+
+        # Fetch customer data
+        cust = lemonsqueezy_service.get_customer_details(event['lemonsqueezy_customer_id'])
+        inv = lemonsqueezy_service.get_subscription_invoice(event['invoice_id'])
+
+        if not cust.get('email'):
+            continue
+
+        try:
+            email_content = llm.generate_dunning_email(
+                cust.get('name', 'Customer'),
+                inv.get('product_name', 'Your Subscription'),
+                f"${event['amount_cents'] / 100:.2f}",
+                next_emails_sent,
+                tone,
+                failure_reason
+            )
+
+            body = email_content['body'].replace("[PAYMENT_LINK]", inv.get('payment_link') or '')
+            email_service.send_dunning_email(cust['email'], email_content['subject'], body)
+
+            supabase.table("dunning_events").update({
+                "emails_sent": next_emails_sent,
+                "last_email_sent_at": datetime.now().isoformat(),
+                "next_email_due_at": next_due.isoformat(),
+                "ai_tone": tone
+            }).eq("id", event['id']).execute()
+
+            processed += 1
+        except Exception as e:
+            print(f"Error: {e}")
+
+    return {"status": "processed", "count": processed}

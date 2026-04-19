@@ -33,6 +33,7 @@ create table if not exists public.lemonsqueezy_accounts (
 -- Enable Row Level Security (RLS)
 alter table public.dunning_events enable row level security;
 alter table public.lemonsqueezy_accounts enable row level security;
+alter table public.user_config enable row level security;
 
 -- Policies for dunning_events
 create policy "Users can view their own dunning events"
@@ -54,4 +55,27 @@ create policy "Users can view their own LS account"
 
 create policy "Users can manage their own LS account"
     on public.lemonsqueezy_accounts for all
+    using (auth.uid() = user_id);
+
+-- User Configuration Table
+create table if not exists public.user_config (
+    id uuid primary key default uuid_generate_v4(),
+    user_id uuid references auth.users on delete cascade unique,
+    webhook_url text,
+    ai_model text default 'llama-3.3-70b-versatile',
+    email_provider text default 'Resend',
+    retry_strategy text default 'Exponential Backoff (4 attempts)',
+    default_tone text default 'gentle',
+    max_attempts integer default 4,
+    created_at timestamp with time zone default now(),
+    updated_at timestamp with time zone default now()
+);
+
+-- Policies for user_config
+create policy "Users can view own config"
+    on public.user_config for select
+    using (auth.uid() = user_id);
+
+create policy "Users can manage own config"
+    on public.user_config for all
     using (auth.uid() = user_id);
