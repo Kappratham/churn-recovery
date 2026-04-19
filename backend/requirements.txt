@@ -1,10 +1,10 @@
 fastapi
-uvicorn
+uvicorn[standard]
 stripe
 supabase
 python-dotenv
 resend
 groq
-pydantic
-pydantic-settings
+pydantic>=2.0
+pydantic-settings>=2.0
 httpx

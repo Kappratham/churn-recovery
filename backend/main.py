@@ -1,6 +1,8 @@
 import hmac
 import hashlib
 import json
+import logging
+import sys
 from fastapi import FastAPI, Request, Header, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from config import get_settings, Settings
@@ -8,7 +10,25 @@ import crud
 import llm
 from supabase import create_client, Client
 
+# Configure logging to stdout for Railway
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    stream=sys.stdout
+)
+logger = logging.getLogger(__name__)
+
 app = FastAPI(title="AI Churn Recovery API")
+
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Starting AI Churn Recovery API...")
+    settings = get_settings()
+    logger.info(f"Supabase configured: {bool(settings.SUPABASE_URL)}")
+    logger.info(f"Lemon Squeezy configured: {bool(settings.LEMON_SQUEEZY_API_KEY)}")
+    logger.info(f"Resend configured: {bool(settings.RESEND_API_KEY)}")
+    logger.info(f"Groq configured: {bool(settings.GROQ_API_KEY)}")
+    logger.info("API startup complete")
 
 # CORS for frontend
 app.add_middleware(
@@ -53,6 +73,7 @@ async def lemonsqueezy_webhook(
     settings: Settings = Depends(get_settings),
     supabase: Client = Depends(get_supabase)
 ):
+    logger.info("Received Lemon Squeezy webhook")
     if not x_signature:
         raise HTTPException(status_code=400, detail="Missing X-Signature header")
 
@@ -79,13 +100,16 @@ async def lemonsqueezy_webhook(
         # Analyze failure reason using AI
         # Lemon Squeezy provides a 'message' attribute with the error
         failure_message = attributes.get('error_message') or "Payment declined"
-        
+
+        logger.info(f"Processing payment failure for customer {customer_id}: {failure_message}")
+
         ai_analysis = None
         try:
             # We treat the error message as the "code" for analysis
             ai_analysis = llm.analyze_failure_reason(failure_message)
+            logger.info("AI analysis completed successfully")
         except Exception as e:
-            print(f"AI analysis failed: {e}")
+            logger.warning(f"AI analysis failed: {e}")
         
         # Create dunning event in DB
         # Mapping Lemon Squeezy attributes to our schema
@@ -106,6 +130,7 @@ async def lemonsqueezy_webhook(
         # We need to find the matching dunning event by customer or invoice
         # For simplicity, search by customer_id if invoice_id differs per attempt
         customer_id = str(attributes.get('customer_id'))
+        logger.info(f"Payment recovered for customer {customer_id}")
         # Mark all active dunning events for this customer as recovered
         supabase.table("dunning_events")\
             .update({"status": "recovered", "recovered_at": "now()"})\
@@ -113,6 +138,7 @@ async def lemonsqueezy_webhook(
             .eq("status", "active")\
             .execute()
 
+    logger.info("Webhook processing complete")
     return {"status": "success"}
 
 # --- Frontend API Endpoints ---
@@ -215,6 +241,7 @@ def process_due_events(
     import lemonsqueezy_service
     from datetime import datetime, timedelta
 
+    logger.info("Processing due dunning events")
     due_events = supabase.table("dunning_events").select("*").eq("status", "active").lte("next_email_due_at", datetime.now().isoformat()).execute()
 
     processed = 0
@@ -268,7 +295,9 @@ def process_due_events(
             }).eq("id", event['id']).execute()
 
             processed += 1
+            logger.info(f"Sent email {next_emails_sent} for event {event['id']}")
         except Exception as e:
-            print(f"Error: {e}")
+            logger.error(f"Error processing event {event['id']}: {e}")
 
+    logger.info(f"Processed {processed} events")
     return {"status": "processed", "count": processed}

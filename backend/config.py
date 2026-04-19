@@ -10,9 +10,8 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str = ""
     INSFORGE_API_KEY: str = ""
     INSFORGE_PROJECT_ID: str = ""
-    
-    class Config:
-        env_file = ".env"
+
+    model_config = {"env_file": ".env", "extra": "ignore"}
 
 @lru_cache()
 def get_settings():
