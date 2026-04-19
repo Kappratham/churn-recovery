@@ -3,6 +3,7 @@ import hashlib
 import json
 import logging
 import sys
+import os
 from fastapi import FastAPI, Request, Header, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from config import get_settings, Settings
@@ -19,14 +20,19 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 logger.info("Starting AI Churn Recovery API...")
-settings = get_settings()
-logger.info(f"Supabase configured: {bool(settings.SUPABASE_URL)}")
-logger.info(f"Lemon Squeezy configured: {bool(settings.LEMON_SQUEEZY_API_KEY)}")
-logger.info(f"Resend configured: {bool(settings.RESEND_API_KEY)}")
-logger.info(f"Groq configured: {bool(settings.GROQ_API_KEY)}")
-logger.info("API startup complete")
+
+try:
+    settings = get_settings()
+    logger.info(f"Supabase URL set: {bool(settings.SUPABASE_URL)}")
+    logger.info(f"Lemon Squeezy API set: {bool(settings.LEMON_SQUEEZY_API_KEY)}")
+    logger.info(f"Resend API set: {bool(settings.RESEND_API_KEY)}")
+    logger.info(f"Groq API set: {bool(settings.GROQ_API_KEY)}")
+    logger.info("Startup complete")
+except Exception as e:
+    logger.error(f"Startup failed: {e}")
 
 app = FastAPI(title="AI Churn Recovery API")
+app.state.settings = get_settings()
 
 # CORS for frontend
 app.add_middleware(
