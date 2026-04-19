@@ -159,3 +159,11 @@ def get_stats(
         "total_failed_cents": total_failed,
         "recovery_rate": len(events) > 0 and round((len(recovered) / len(events)) * 100, 1) or 0
     }
+
+@app.post("/api/sync")
+def sync_data(
+    supabase: Client = Depends(get_supabase),
+    user = Depends(get_current_user)
+):
+    """Trigger a sync - returns success to refresh frontend data"""
+    return {"status": "synced", "message": "Data refreshed"}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import {
   LayoutDashboard,
   Activity,
@@ -20,6 +21,15 @@ import {
 import { Dashboard } from './components/Dashboard';
 import { supabase } from './lib/supabase';
 
+const API_URL = import.meta.env.VITE_API_URL || '';
+
+async function fetchWithAuth(url: string) {
+  const { data: { session } } = await supabase!.auth.getSession();
+  return axios.get(url, {
+    headers: { 'Authorization': `Bearer ${session?.access_token}` }
+  });
+}
+
 // Navigation configuration
 const NAV_ITEMS = [
   { id: 'Dashboard', label: 'Overview', icon: LayoutDashboard },
@@ -37,6 +47,7 @@ function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -74,6 +85,24 @@ function App() {
       if (error) setError(error.message);
     }
     setLoading(false);
+  };
+
+  const handleSync = async () => {
+    if (!supabase) return;
+    setSyncing(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        await axios.post(`${API_URL}/api/sync`, {}, {
+          headers: { 'Authorization': `Bearer ${session.access_token}` }
+        });
+      }
+      // Trigger a refresh by re-rendering
+      window.location.reload();
+    } catch (err) {
+      console.error('Sync failed:', err);
+    }
+    setSyncing(false);
   };
 
   // Loading screen
@@ -291,8 +320,12 @@ function App() {
             <button className="p-2 rounded-md text-[#52525b] hover:text-white hover:bg-[rgba(255,255,255,0.02)] transition-colors">
               <Bell size={16} />
             </button>
-            <button className="btn btn-primary text-xs py-1.5 px-3">
-              Sync Now
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className="btn btn-primary text-xs py-1.5 px-3"
+            >
+              {syncing ? 'Syncing...' : 'Sync Now'}
             </button>
           </div>
         </header>
