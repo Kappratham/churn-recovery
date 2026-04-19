@@ -3,6 +3,7 @@ import hashlib
 import json
 import logging
 import sys
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Header, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from config import get_settings, Settings
@@ -18,10 +19,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="AI Churn Recovery API")
-
-@app.on_event("startup")
-async def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     logger.info("Starting AI Churn Recovery API...")
     settings = get_settings()
     logger.info(f"Supabase configured: {bool(settings.SUPABASE_URL)}")
@@ -29,6 +28,9 @@ async def startup_event():
     logger.info(f"Resend configured: {bool(settings.RESEND_API_KEY)}")
     logger.info(f"Groq configured: {bool(settings.GROQ_API_KEY)}")
     logger.info("API startup complete")
+    yield
+
+app = FastAPI(title="AI Churn Recovery API", lifespan=lifespan)
 
 # CORS for frontend
 app.add_middleware(
