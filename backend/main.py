@@ -3,13 +3,19 @@ import hashlib
 import json
 import logging
 import sys
-import os
 from fastapi import FastAPI, Request, Header, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from config import get_settings, Settings
+
+print("Starting imports...", file=sys.stderr)
+
 import crud
+print("crud imported", file=sys.stderr)
 import llm
+print("llm imported", file=sys.stderr)
 from supabase import create_client, Client
+
+print("All imports done", file=sys.stderr)
 
 # Configure logging to stdout for Railway
 logging.basicConfig(
@@ -19,31 +25,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-logger.info("Starting AI Churn Recovery API...")
-
-try:
-    # Test imports
-    import crud
-    import llm
-    import config
-    import email_service
-    import lemonsqueezy_service
-    import scheduler
-    logger.info("All modules imported OK")
-
-    settings = get_settings()
-    logger.info(f"Supabase URL set: {bool(settings.SUPABASE_URL)}")
-    logger.info(f"Lemon Squeezy API set: {bool(settings.LEMON_SQUEEZY_API_KEY)}")
-    logger.info(f"Resend API set: {bool(settings.RESEND_API_KEY)}")
-    logger.info(f"Groq API set: {bool(settings.GROQ_API_KEY)}")
-    logger.info("Startup complete")
-except Exception as e:
-    logger.error(f"Startup failed: {e}")
-    import traceback
-    traceback.print_exc()
-
+logger.info("Creating FastAPI app...")
 app = FastAPI(title="AI Churn Recovery API")
+logger.info("FastAPI app created")
+
 app.state.settings = get_settings()
+logger.info("Settings loaded")
 
 @app.get("/")
 def root():
